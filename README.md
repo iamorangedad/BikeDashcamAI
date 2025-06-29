@@ -4,134 +4,10 @@ An iOS dashcam application with AI-powered real-time video editing capabilities 
 
 <div align="center">
 
-<!-- HTML Poster Content -->
-<div style="
-    width: 600px;
-    height:600px;
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    border-radius: 20px;
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
-    position: relative;
-    overflow: hidden;
-    margin: 20px auto;
-    font-family: 'Poppins', sans-serif;
-    color: white;
-    text-align: center;
-    padding: 40px 20px;
-">
-
-<!-- AI Badge -->
-<div style="
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.8em;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
-">🤖 AI Powered</div>
-
-<!-- Header -->
-<div style="margin-bottom: 30px;">
-    <h1 style="
-        font-size: 3.2em;
-        font-weight: 800;
-        color: #fff;
-        text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-        margin-bottom: 10px;
-        background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    ">BikeDashcamAI</h1>
-    <p style="
-        font-size: 1.1em;
-        color: #e0e6ed;
-        font-weight: 300;
-    ">Real-time AI Recording & Editing for Cyclists</p>
-</div>
-
-<!-- Main Visual -->
-<div style="
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 20px 0;
-">
-    <div style="
-        width: 180px;
-        height: 180px;
-        background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 80px;
-        color: white;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-    ">🚴‍♂️</div>
-</div>
-
-<!-- Features -->
-<div style="padding: 30px 40px;">
-    <div style="
-        display: flex;
-        align-items: center
-        color: white;
-        font-size: 1.1em;
-    ">
-        <div style="
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 20px;
-            font-size: 1.3em;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-        ">🎥</div>
-        <div style="flex: 1;">
-            <div style="font-weight: 600; margin-bottom: 5px;">Record While Riding</div>
-            <div style="font-size: 0.9em; color: #b8c6db; font-weight: 300;">Capture every moment of your journey</div>
-        </div>        
-    </div>
-    <div style="
-        display: flex;
-        align-items: center
-        color: white;
-        font-size: 1.1em;
-    ">
-        <div style="
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 20px;
-            font-size: 1.3em;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-        ">✂️</div>
-        <div style="flex: 1;">
-            <div style="font-weight: 600; margin-bottom: 5px;">AI Auto-Edit</div>
-            <div style="font-size: 0.9em; color: #b8c6db; font-weight: 300;">Smart editing creates highlights instantly</div>
-        </div>        
-    </div>    
-
-</div>
-
-</div>
+![BikeDashcamAI](BikeDashcamAI.png)
 
 *Experience the future of cycling with AI-powered video recording and editing*
-
+ 
 </div>
 
 ---
@@ -417,7 +293,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 For questions or suggestions, please contact us through:
 - Submit a GitHub Issue
-- Email: your.email@example.com
 
 ## Acknowledgments
 
