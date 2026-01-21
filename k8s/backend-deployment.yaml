@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: bike-dashcam-backend
+  namespace: bike-dashcam
   labels:
     app: bike-dashcam-backend
     environment: development
@@ -16,6 +17,8 @@ spec:
         app: bike-dashcam-backend
         environment: development
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: ubuntu
       containers:
       - name: backend
         image: ultralytics/ultralytics:latest-jetson-jetpack6
@@ -39,13 +42,11 @@ spec:
             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
         resources:
           requests:
-            memory: "1Gi"
+            memory: "2Gi"
             cpu: "500m"
-            nvidia.com/gpu: "1"
           limits:
             memory: "4Gi"
             cpu: "2000m"
-            nvidia.com/gpu: "1"
         livenessProbe:
           httpGet:
             path: /health
@@ -61,42 +62,9 @@ spec:
       volumes:
       - name: backend-code
         hostPath:
-          path: /Users/mac/Documents/Agent/BikeDashcamAI/backend
-          type: Directory
+          path: /home/jetson/BikeDashcamAI/backend
+          type: DirectoryOrCreate
       - name: output-storage
         hostPath:
-          path: /Users/mac/Documents/Agent/BikeDashcamAI/outputs
+          path: /home/jetson/BikeDashcamAI/outputs
           type: DirectoryOrCreate
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: bike-dashcam-backend-service
-  labels:
-    app: bike-dashcam-backend
-spec:
-  type: ClusterIP
-  ports:
-  - port: 8000
-    targetPort: 8000
-    protocol: TCP
-    name: http
-  selector:
-    app: bike-dashcam-backend
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: bike-dashcam-backend-nodeport
-  labels:
-    app: bike-dashcam-backend
-spec:
-  type: NodePort
-  ports:
-  - port: 8000
-    targetPort: 8000
-    nodePort: 30080
-    protocol: TCP
-    name: http
-  selector:
-    app: bike-dashcam-backend
