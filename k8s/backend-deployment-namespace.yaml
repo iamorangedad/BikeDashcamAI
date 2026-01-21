@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bike-dashcam
+  labels:
+    name: bike-dashcam
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bike-dashcam-backend
+  namespace: bike-dashcam
+  labels:
+    app: bike-dashcam-backend
+    environment: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bike-dashcam-backend
+  template:
+    metadata:
+      labels:
+        app: bike-dashcam-backend
+        environment: development
+    spec:
+      containers:
+      - name: backend
+        image: ultralytics/ultralytics:latest-jetson-jetpack6
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: backend-config
+        volumeMounts:
+        - name: backend-code
+          mountPath: /workspace/backend
+        - name: output-storage
+          mountPath: /workspace/backend/outputs
+        workingDir: /workspace/backend
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            pip install fastapi uvicorn websockets opencv-python numpy pydantic python-multipart Pillow
+            uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+            nvidia.com/gpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+            nvidia.com/gpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 5
+      volumes:
+      - name: backend-code
+        hostPath:
+          path: /Users/mac/Documents/Agent/BikeDashcamAI/backend
+          type: Directory
+      - name: output-storage
+        hostPath:
+          path: /Users/mac/Documents/Agent/BikeDashcamAI/outputs
+          type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bike-dashcam-backend-service
+  namespace: bike-dashcam
+  labels:
+    app: bike-dashcam-backend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: bike-dashcam-backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bike-dashcam-backend-nodeport
+  namespace: bike-dashcam
+  labels:
+    app: bike-dashcam-backend
+spec:
+  type: NodePort
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 30080
+    protocol: TCP
+    name: http
+  selector:
+    app: bike-dashcam-backend
