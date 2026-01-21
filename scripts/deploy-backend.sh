@@ -10,7 +10,7 @@ kubectl create namespace bike-dashcam --dry-run=client -o yaml | kubectl apply -
 echo "Applying Kubernetes configurations..."
 
 kubectl apply -f k8s/backend-config.yaml
-kubectl apply -f k8s/backend-deployment-namespace.yaml
+kubectl apply -f k8s/backend-deployment.yaml
 
 if [ $? -eq 0 ]; then
     echo "✅ Kubernetes deployment successful"
