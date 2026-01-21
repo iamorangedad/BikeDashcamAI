@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bike-dashcam-backend
+  namespace: bike-dashcam
+  labels:
+    app: bike-dashcam-backend
+    environment: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bike-dashcam-backend
+  template:
+    metadata:
+      labels:
+        app: bike-dashcam-backend
+        environment: development
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ubuntu
+      containers:
+      - name: backend
+        image: python:3.11-slim
+        ports:
+        - containerPort: 8000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: backend-config
+        volumeMounts:
+        - name: backend-code
+          mountPath: /workspace/backend
+        - name: output-storage
+          mountPath: /workspace/backend/outputs
+        workingDir: /workspace/backend
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            pip install fastapi uvicorn
+            uvicorn simple_main:app --host 0.0.0.0 --port 8000 --reload
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 5
+      volumes:
+      - name: backend-code
+        hostPath:
+          path: /tmp/bike-dashcam-backend
+          type: DirectoryOrCreate
+      - name: output-storage
+        hostPath:
+          path: /home/jetson/BikeDashcamAI/outputs
+          type: DirectoryOrCreate
