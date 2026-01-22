@@ -52,5 +52,3 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         NSCameraUsageDescription: "BikeDashcam需要使用相机来录制骑行视频"
         NSPhotoLibraryAddUsageDescription: "BikeDashcam需要保存录制的视频到相册"
-    entitlements:
-      path: BikeDashcamAI/Resources/BikeDashcamAI.entitlements
