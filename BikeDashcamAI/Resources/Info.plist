@@ -22,8 +22,16 @@
 	<string>1</string>
 	<key>NSCameraUsageDescription</key>
 	<string>BikeDashcam需要使用相机来录制骑行视频</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>BikeDashcam需要使用位置服务来记录骑行轨迹和速度</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>BikeDashcam需要在后台持续记录骑行数据</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>BikeDashcam需要保存录制的视频到相册</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
