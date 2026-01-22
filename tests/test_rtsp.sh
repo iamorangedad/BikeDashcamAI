@@ -1,0 +1,1 @@
+ffplay -rtsp_transport tcp rtsp://10.0.0.75:8554/stream

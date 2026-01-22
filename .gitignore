@@ -57,3 +57,6 @@ backend/outputs/
 # Environment
 .env
 .env.local
+
+# dev
+tips.txt
