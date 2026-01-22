@@ -1,0 +1,374 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 63;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		13E0D3C10BBBE6D64651C6C1 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B36C8C75FED7DF1CDE43087 /* MainViewController.swift */; };
+		16C241D878B9C8CE8E53A4E9 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 671C93E7A4391F93846934D1 /* CameraManager.swift */; };
+		20BE3F76425A7FDD59279767 /* SimpleCameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C72E418E5A02847D121E687D /* SimpleCameraManager.swift */; };
+		307210EC3B20CF033945F357 /* RecordingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F2B665ADCAE099796CF3A4 /* RecordingCoordinator.swift */; };
+		34C2C3D0D53E41DAF1E4025A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B9F360DE38FFBBD9A198A3E /* AppDelegate.swift */; };
+		52E643259046A6E269C286A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5017D883B83863251FCD6DE4 /* Assets.xcassets */; };
+		5F7965D86C69EEE12E4D7F98 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E206C10370E22AD25CD6CF84 /* SceneDelegate.swift */; };
+		892FECE4275311436A47BFAF /* VideoEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45CD279379C97E930954F636 /* VideoEncoder.swift */; };
+		D2C8C433F5DDD675CDAECD94 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 5FCCA29D6DA4411388B29BC9 /* LaunchScreen.storyboard */; };
+		F2144B31027A7761FA6345E6 /* SensorDataCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6637A3F19373165A942F52E /* SensorDataCollector.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		39F2B665ADCAE099796CF3A4 /* RecordingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingCoordinator.swift; sourceTree = "<group>"; };
+		45CD279379C97E930954F636 /* VideoEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEncoder.swift; sourceTree = "<group>"; };
+		4B36C8C75FED7DF1CDE43087 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		5017D883B83863251FCD6DE4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5B9F360DE38FFBBD9A198A3E /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		5FCCA29D6DA4411388B29BC9 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		671C93E7A4391F93846934D1 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
+		6822E6331BD9157FD5CFFCF2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		872F32A73220974E930054A4 /* BikeDashcamAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BikeDashcamAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B6637A3F19373165A942F52E /* SensorDataCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorDataCollector.swift; sourceTree = "<group>"; };
+		B86566B63C93A5F692B36CD4 /* BikeDashcamAI.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BikeDashcamAI.entitlements; sourceTree = "<group>"; };
+		C72E418E5A02847D121E687D /* SimpleCameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleCameraManager.swift; sourceTree = "<group>"; };
+		E206C10370E22AD25CD6CF84 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0B20368E2550B106D5DD739A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				872F32A73220974E930054A4 /* BikeDashcamAI.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5C0E22C6F514A14AE32929F2 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				B2112057C5A0898924E87EC6 /* App */,
+				929AF41AFA687FA2DAE0C244 /* Services */,
+				6EF2D4AEAF6119EF20E1F546 /* ViewControllers */,
+			);
+			name = Sources;
+			path = BikeDashcamAI/Sources;
+			sourceTree = "<group>";
+		};
+		6EF2D4AEAF6119EF20E1F546 /* ViewControllers */ = {
+			isa = PBXGroup;
+			children = (
+				4B36C8C75FED7DF1CDE43087 /* MainViewController.swift */,
+			);
+			path = ViewControllers;
+			sourceTree = "<group>";
+		};
+		911BFCC55205201ECE1AA0F3 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				5017D883B83863251FCD6DE4 /* Assets.xcassets */,
+				B86566B63C93A5F692B36CD4 /* BikeDashcamAI.entitlements */,
+				6822E6331BD9157FD5CFFCF2 /* Info.plist */,
+				5FCCA29D6DA4411388B29BC9 /* LaunchScreen.storyboard */,
+			);
+			name = Resources;
+			path = BikeDashcamAI/Resources;
+			sourceTree = "<group>";
+		};
+		929AF41AFA687FA2DAE0C244 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				671C93E7A4391F93846934D1 /* CameraManager.swift */,
+				39F2B665ADCAE099796CF3A4 /* RecordingCoordinator.swift */,
+				B6637A3F19373165A942F52E /* SensorDataCollector.swift */,
+				C72E418E5A02847D121E687D /* SimpleCameraManager.swift */,
+				45CD279379C97E930954F636 /* VideoEncoder.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		B080E3790DD912DA95C2D234 = {
+			isa = PBXGroup;
+			children = (
+				911BFCC55205201ECE1AA0F3 /* Resources */,
+				5C0E22C6F514A14AE32929F2 /* Sources */,
+				0B20368E2550B106D5DD739A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B2112057C5A0898924E87EC6 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				5B9F360DE38FFBBD9A198A3E /* AppDelegate.swift */,
+				E206C10370E22AD25CD6CF84 /* SceneDelegate.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F1E1FAD14134E2027D3DD9BE /* BikeDashcamAI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52C1AD585B5AF9004EAAD36C /* Build configuration list for PBXNativeTarget "BikeDashcamAI" */;
+			buildPhases = (
+				26C917F48C1C566F3CD76584 /* Sources */,
+				BA3118758072212898C46F60 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BikeDashcamAI;
+			packageProductDependencies = (
+			);
+			productName = BikeDashcamAI;
+			productReference = 872F32A73220974E930054A4 /* BikeDashcamAI.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6461D4680E075CBA98C2AE76 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = 2414B3F7269B75E562BEA806 /* Build configuration list for PBXProject "BikeDashcamAI" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B080E3790DD912DA95C2D234;
+			minimizedProjectReferenceProxies = 1;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F1E1FAD14134E2027D3DD9BE /* BikeDashcamAI */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BA3118758072212898C46F60 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52E643259046A6E269C286A1 /* Assets.xcassets in Resources */,
+				D2C8C433F5DDD675CDAECD94 /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		26C917F48C1C566F3CD76584 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				34C2C3D0D53E41DAF1E4025A /* AppDelegate.swift in Sources */,
+				16C241D878B9C8CE8E53A4E9 /* CameraManager.swift in Sources */,
+				13E0D3C10BBBE6D64651C6C1 /* MainViewController.swift in Sources */,
+				307210EC3B20CF033945F357 /* RecordingCoordinator.swift in Sources */,
+				5F7965D86C69EEE12E4D7F98 /* SceneDelegate.swift in Sources */,
+				F2144B31027A7761FA6345E6 /* SensorDataCollector.swift in Sources */,
+				20BE3F76425A7FDD59279767 /* SimpleCameraManager.swift in Sources */,
+				892FECE4275311436A47BFAF /* VideoEncoder.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		50E6F1EB810AD403CC29AC30 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BikeDashcamAI/Resources/BikeDashcamAI.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 9CN2YHGMAF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BikeDashcamAI/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bikedashcam.ai;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		655EA96881D0AF82DC29F10D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9CD5B34090C281D657A88F92 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BikeDashcamAI/Resources/BikeDashcamAI.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 9CN2YHGMAF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BikeDashcamAI/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bikedashcam.ai;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F0F62B6CCD7CA0356D823A3E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2414B3F7269B75E562BEA806 /* Build configuration list for PBXProject "BikeDashcamAI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				655EA96881D0AF82DC29F10D /* Debug */,
+				F0F62B6CCD7CA0356D823A3E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		52C1AD585B5AF9004EAAD36C /* Build configuration list for PBXNativeTarget "BikeDashcamAI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9CD5B34090C281D657A88F92 /* Debug */,
+				50E6F1EB810AD403CC29AC30 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 6461D4680E075CBA98C2AE76 /* Project object */;
+}
