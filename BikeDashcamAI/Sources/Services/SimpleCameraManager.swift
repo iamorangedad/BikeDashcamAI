@@ -1,12 +1,14 @@
 import AVFoundation
 import UIKit
 import Photos
-import Photos
 
 enum SimpleCameraError: Error {
     case permissionDenied
     case sessionFailed(Error)
     case writerFailed(Error)
+    case highFrameRateUnavailable
+    case hdrUnavailable
+    case deviceUnavailable
     case unknown
 }
 
@@ -18,6 +20,7 @@ protocol SimpleCameraManagerDelegate: AnyObject {
     func cameraManager(_ manager: SimpleCameraManager, didChangeState state: SimpleRecordingState)
     func cameraManager(_ manager: SimpleCameraManager, didFailWithError error: SimpleCameraError)
     func cameraManager(_ manager: SimpleCameraManager, didUpdateFrameCount current: Int, total: Int)
+    func cameraManager(_ manager: SimpleCameraManager, didUpdateRecordingInfo info: [String: Any])
 }
 
 final class SimpleCameraManager: NSObject {
@@ -41,6 +44,15 @@ final class SimpleCameraManager: NSObject {
     private var recordingStartTime: CMTime?
     private var outputURL: URL?
     
+    private var videoDevice: AVCaptureDevice?
+    private var isHDREnabled = false
+    private var isHighFrameRateEnabled = false
+    
+    private(set) var currentResolution: String = "4K"
+    private(set) var currentFrameRate: Int = 60
+    private(set) var isStabilizationEnabled: Bool = true
+    private(set) var isHDRSupported: Bool = false
+    
     func checkPermission() async -> Bool {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         switch status {
@@ -53,19 +65,52 @@ final class SimpleCameraManager: NSObject {
         }
     }
     
-    func setupSession() throws {
-        let session = AVCaptureSession()
-        session.sessionPreset = .high
-        
-        guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
-            throw SimpleCameraError.permissionDenied
+    func getSupportedCapabilities() -> [String: Any] {
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+            return [:]
         }
         
-        let input = try AVCaptureDeviceInput(device: videoDevice)
+        var capabilities: [String: Any] = [:]
+        
+        let formats = device.formats
+        var supports4K = false
+        var supports60fps = false
+        
+        for format in formats {
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            if dimensions.width >= 3840 && dimensions.height >= 2160 {
+                supports4K = true
+                let duration = format.videoSupportedFrameRateRanges.first?.maxFrameRate ?? 0
+                if duration >= 60 {
+                    supports60fps = true
+                }
+            }
+        }
+        
+        capabilities["4KSupport"] = supports4K
+        capabilities["HDRSupport"] = false
+        capabilities["60fpsSupport"] = supports60fps
+        capabilities["stabilizationSupport"] = true
+        
+        return capabilities
+    }
+    
+    func setupSession() throws {
+        let session = AVCaptureSession()
+        session.sessionPreset = .hd4K3840x2160
+        
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+            throw SimpleCameraError.deviceUnavailable
+        }
+        videoDevice = device
+        
+        let input = try AVCaptureDeviceInput(device: device)
         if session.canAddInput(input) {
             session.addInput(input)
             self.videoInput = input
         }
+        
+        try configureDeviceForHighFrameRate(device: device)
         
         let output = AVCaptureVideoDataOutput()
         output.setSampleBufferDelegate(self, queue: captureQueue)
@@ -76,11 +121,65 @@ final class SimpleCameraManager: NSObject {
             self.videoOutput = output
         }
         
-        if let connection = output.connection(with: .video), connection.isVideoStabilizationSupported {
-            connection.preferredVideoStabilizationMode = .cinematic
+        if let connection = output.connection(with: .video) {
+            if connection.isVideoStabilizationSupported {
+                connection.preferredVideoStabilizationMode = .cinematicExtended
+                isStabilizationEnabled = true
+            }
         }
         
         self.captureSession = session
+    }
+    
+    private func configureDeviceForHighFrameRate(device: AVCaptureDevice) throws {
+        try device.lockForConfiguration()
+        
+        let formats = device.formats
+        var selectedFormat: AVCaptureDevice.Format?
+        var selectedFrameRate: Int = 30
+        
+        for format in formats {
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            if dimensions.width >= 3840 && dimensions.height >= 2160 {
+                let maxRate = format.videoSupportedFrameRateRanges.first?.maxFrameRate ?? 30
+                if maxRate >= 60 {
+                    selectedFormat = format
+                    selectedFrameRate = 60
+                    break
+                } else if selectedFormat == nil {
+                    selectedFormat = format
+                    selectedFrameRate = Int(maxRate)
+                }
+            }
+        }
+        
+        if let format = selectedFormat {
+            device.activeFormat = format
+            device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(selectedFrameRate))
+            device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(selectedFrameRate))
+            isHighFrameRateEnabled = selectedFrameRate >= 60
+            currentFrameRate = selectedFrameRate
+        }
+        
+        device.unlockForConfiguration()
+    }
+    
+    func enableHDR(_ enable: Bool) {
+        isHDREnabled = enable
+        
+        let info = getCurrentRecordingInfo()
+        delegate?.cameraManager(self, didUpdateRecordingInfo: info)
+    }
+    
+    func getCurrentRecordingInfo() -> [String: Any] {
+        return [
+            "resolution": currentResolution,
+            "frameRate": currentFrameRate,
+            "stabilization": isStabilizationEnabled,
+            "hdrEnabled": isHDREnabled,
+            "hdrSupported": isHDRSupported,
+            "highFrameRate": isHighFrameRateEnabled
+        ]
     }
     
     func startSession() {
@@ -125,12 +224,13 @@ final class SimpleCameraManager: NSObject {
             assetWriter = try AVAssetWriter(outputURL: outputURL!, fileType: .mp4)
             
             let videoSettings: [String: Any] = [
-                AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: 1920,
-                AVVideoHeightKey: 1080,
+                AVVideoCodecKey: AVVideoCodecType.hevc,
+                AVVideoWidthKey: 3840,
+                AVVideoHeightKey: 2160,
                 AVVideoCompressionPropertiesKey: [
-                    AVVideoAverageBitRateKey: 10_000_000,
-                    AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+                    AVVideoAverageBitRateKey: 35_000_000,
+                    AVVideoMaxKeyFrameIntervalKey: 120,
+                    AVVideoAllowFrameReorderingKey: true
                 ]
             ]
             
@@ -139,8 +239,8 @@ final class SimpleCameraManager: NSObject {
             
             let sourcePixelBufferAttributes: [String: Any] = [
                 kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
-                kCVPixelBufferWidthKey as String: 1920,
-                kCVPixelBufferHeightKey as String: 1080
+                kCVPixelBufferWidthKey as String: 3840,
+                kCVPixelBufferHeightKey as String: 2160
             ]
             
             pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
@@ -180,24 +280,6 @@ final class SimpleCameraManager: NSObject {
         }
     }
     
-    private func saveToPhotoLibrary(url: URL) {
-        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-            guard status == .authorized else { return }
-            
-            PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
-            } completionHandler: { success, error in
-                DispatchQueue.main.async {
-                    if success {
-                        print("Video saved to photo library")
-                    } else if let error = error {
-                        print("Failed to save video: \(error.localizedDescription)")
-                    }
-                }
-            }
-        }
-    }
-    
     private func shouldKeepFrame() -> Bool {
         frameCount += 1
         let shouldKeep = frameCount % (framesToSkip + 1) == 0
@@ -209,6 +291,24 @@ final class SimpleCameraManager: NSObject {
             }
         }
         return shouldKeep
+    }
+    
+    private func saveToPhotoLibrary(url: URL) {
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            guard status == .authorized else { return }
+            
+            PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+            } completionHandler: { success, error in
+                DispatchQueue.main.async {
+                    if success {
+                        print("Video saved to photo library: \(url.lastPathComponent)")
+                    } else if let error = error {
+                        print("Failed to save video: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
     }
 }
 
