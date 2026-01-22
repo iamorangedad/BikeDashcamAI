@@ -30,7 +30,6 @@
 		6822E6331BD9157FD5CFFCF2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		872F32A73220974E930054A4 /* BikeDashcamAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BikeDashcamAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6637A3F19373165A942F52E /* SensorDataCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorDataCollector.swift; sourceTree = "<group>"; };
-		B86566B63C93A5F692B36CD4 /* BikeDashcamAI.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BikeDashcamAI.entitlements; sourceTree = "<group>"; };
 		C72E418E5A02847D121E687D /* SimpleCameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleCameraManager.swift; sourceTree = "<group>"; };
 		E206C10370E22AD25CD6CF84 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -67,7 +66,6 @@
 			isa = PBXGroup;
 			children = (
 				5017D883B83863251FCD6DE4 /* Assets.xcassets */,
-				B86566B63C93A5F692B36CD4 /* BikeDashcamAI.entitlements */,
 				6822E6331BD9157FD5CFFCF2 /* Info.plist */,
 				5FCCA29D6DA4411388B29BC9 /* LaunchScreen.storyboard */,
 			);
@@ -188,7 +186,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = BikeDashcamAI/Resources/BikeDashcamAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 9CN2YHGMAF;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -273,7 +270,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = BikeDashcamAI/Resources/BikeDashcamAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 9CN2YHGMAF;
 				GENERATE_INFOPLIST_FILE = YES;
