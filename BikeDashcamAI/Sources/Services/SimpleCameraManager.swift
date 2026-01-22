@@ -6,6 +6,7 @@ enum SimpleCameraError: Error {
     case permissionDenied
     case sessionFailed(Error)
     case writerFailed(Error)
+    case encoderFailed(Error)
     case highFrameRateUnavailable
     case hdrUnavailable
     case deviceUnavailable
@@ -21,12 +22,14 @@ protocol SimpleCameraManagerDelegate: AnyObject {
     func cameraManager(_ manager: SimpleCameraManager, didFailWithError error: SimpleCameraError)
     func cameraManager(_ manager: SimpleCameraManager, didUpdateFrameCount current: Int, total: Int)
     func cameraManager(_ manager: SimpleCameraManager, didUpdateRecordingInfo info: [String: Any])
+    func cameraManager(_ manager: SimpleCameraManager, didUpdateStatistics stats: [String: Any])
 }
 
 final class SimpleCameraManager: NSObject {
     private(set) var captureSession: AVCaptureSession?
     private var videoOutput: AVCaptureVideoDataOutput?
     private var videoInput: AVCaptureDeviceInput?
+    
     private var assetWriter: AVAssetWriter?
     private var videoWriterInput: AVAssetWriterInput?
     private var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
@@ -41,7 +44,6 @@ final class SimpleCameraManager: NSObject {
     private var savedFrameCount = 0
     private let framesToSkip = 9
     
-    private var recordingStartTime: CMTime?
     private var outputURL: URL?
     
     private var videoDevice: AVCaptureDevice?
@@ -52,6 +54,13 @@ final class SimpleCameraManager: NSObject {
     private(set) var currentFrameRate: Int = 60
     private(set) var isStabilizationEnabled: Bool = true
     private(set) var isHDRSupported: Bool = false
+    private(set) var currentBitratePreset: VideoEncoderConfiguration.BitratePreset = .standard
+    
+    private var recordingStartTime: CMTime?
+    private var encodedBytes: Int64 = 0
+    private var encodedFrameCount: Int = 0
+    private var droppedFrameCount: Int = 0
+    private var encodingStartTime: Date?
     
     func checkPermission() async -> Bool {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
@@ -93,6 +102,16 @@ final class SimpleCameraManager: NSObject {
         capabilities["stabilizationSupport"] = true
         
         return capabilities
+    }
+    
+    func getAvailableBitratePresets() -> [String] {
+        return VideoEncoderConfiguration.BitratePreset.allCases.map { $0.description }
+    }
+    
+    func setBitratePreset(_ preset: VideoEncoderConfiguration.BitratePreset) {
+        currentBitratePreset = preset
+        let info = getCurrentRecordingInfo()
+        delegate?.cameraManager(self, didUpdateRecordingInfo: info)
     }
     
     func setupSession() throws {
@@ -178,7 +197,9 @@ final class SimpleCameraManager: NSObject {
             "stabilization": isStabilizationEnabled,
             "hdrEnabled": isHDREnabled,
             "hdrSupported": isHDRSupported,
-            "highFrameRate": isHighFrameRateEnabled
+            "highFrameRate": isHighFrameRateEnabled,
+            "bitratePreset": currentBitratePreset.rawValue,
+            "bitrate": currentBitratePreset.bitrate / 1_000_000
         ]
     }
     
@@ -199,7 +220,12 @@ final class SimpleCameraManager: NSObject {
         
         frameCount = 0
         savedFrameCount = 0
+        encodedBytes = 0
+        encodedFrameCount = 0
+        droppedFrameCount = 0
         recordingState = .recording
+        encodingStartTime = Date()
+        
         delegate?.cameraManager(self, didChangeState: .recording)
         
         prepareWriter()
@@ -211,24 +237,29 @@ final class SimpleCameraManager: NSObject {
         
         finishWriting { [weak self] in
             guard let self = self else { return }
+            if let url = self.outputURL {
+                self.saveToPhotoLibrary(url: url)
+            }
             self.delegate?.cameraManager(self, didChangeState: .idle)
         }
     }
     
     private func prepareWriter() {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let fileName = "processed_\(Date().timeIntervalSince1970).mp4"
+        let fileName = "recording_\(Date().timeIntervalSince1970).mov"
         outputURL = documentsPath.appendingPathComponent(fileName)
         
         do {
-            assetWriter = try AVAssetWriter(outputURL: outputURL!, fileType: .mp4)
+            assetWriter = try AVAssetWriter(outputURL: outputURL!, fileType: .mov)
+            
+            let bitrate = currentBitratePreset.bitrate
             
             let videoSettings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.hevc,
                 AVVideoWidthKey: 3840,
                 AVVideoHeightKey: 2160,
                 AVVideoCompressionPropertiesKey: [
-                    AVVideoAverageBitRateKey: 35_000_000,
+                    AVVideoAverageBitRateKey: bitrate,
                     AVVideoMaxKeyFrameIntervalKey: 120,
                     AVVideoAllowFrameReorderingKey: true
                 ]
@@ -269,11 +300,8 @@ final class SimpleCameraManager: NSObject {
             
             self.videoWriterInput?.markAsFinished()
             
-            self.assetWriter?.finishWriting { [weak self] in
-                guard let self = self else { return }
-                
+            self.assetWriter?.finishWriting {
                 DispatchQueue.main.async {
-                    self.saveToPhotoLibrary(url: self.outputURL!)
                     completion()
                 }
             }
@@ -291,6 +319,29 @@ final class SimpleCameraManager: NSObject {
             }
         }
         return shouldKeep
+    }
+    
+    private func updateStatistics() {
+        guard let startTime = encodingStartTime else { return }
+        
+        let duration = Date().timeIntervalSince(startTime)
+        if duration > 0 {
+            let averageBitrate = Double(encodedBytes) * 8 / duration
+            let fps = Double(encodedFrameCount) / duration
+            
+            let stats: [String: Any] = [
+                "averageBitrate": averageBitrate / 1_000_000,
+                "fps": fps,
+                "encodedFrames": encodedFrameCount,
+                "droppedFrames": droppedFrameCount,
+                "encodedBytes": Double(encodedBytes) / 1_000_000
+            ]
+            
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.delegate?.cameraManager(self, didUpdateStatistics: stats)
+            }
+        }
     }
     
     private func saveToPhotoLibrary(url: URL) {
@@ -318,7 +369,10 @@ extension SimpleCameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         
         guard shouldKeepFrame() else { return }
         
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            droppedFrameCount += 1
+            return
+        }
         
         let presentationTime = CMTime(seconds: Double(savedFrameCount) / 30.0, preferredTimescale: 600)
         
@@ -330,8 +384,13 @@ extension SimpleCameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
                 return
             }
             
-            if adaptor.append(pixelBuffer, withPresentationTime: presentationTime) == false {
-                print("Failed to append pixel buffer")
+            if adaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
+                self.encodedFrameCount += 1
+                let estimatedBytesPerFrame = Double(self.currentBitratePreset.bitrate) / 30.0 / 8.0
+                self.encodedBytes += Int64(estimatedBytesPerFrame)
+                self.updateStatistics()
+            } else {
+                self.droppedFrameCount += 1
             }
         }
     }
