@@ -158,7 +158,7 @@ final class VideoEncoder {
     
     private func prepareOutputFile() {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let fileName = "recording_\(Date().timeIntervalSince1970).mp4"
+        let fileName = "recording_\(Date().timeIntervalSince1970).mov"
         outputFileURL = documentsPath.appendingPathComponent(fileName)
         
         let fileManager = FileManager.default
