@@ -8,6 +8,8 @@ class MainViewController: UIViewController {
     private var frameCountLabel: UILabel!
     private var infoLabel: UILabel!
     private var capabilitiesLabel: UILabel!
+    private var bitrateSegmentedControl: UISegmentedControl!
+    private var statsLabel: UILabel!
     private var cameraManager: SimpleCameraManager!
     private var previewLayer: AVCaptureVideoPreviewLayer?
     
@@ -62,6 +64,21 @@ class MainViewController: UIViewController {
         capabilitiesLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(capabilitiesLabel)
         
+        bitrateSegmentedControl = UISegmentedControl(items: ["35M", "25M", "15M", "10M"])
+        bitrateSegmentedControl.selectedSegmentIndex = 1
+        bitrateSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
+        bitrateSegmentedControl.addTarget(self, action: #selector(bitrateChanged), for: .valueChanged)
+        view.addSubview(bitrateSegmentedControl)
+        
+        statsLabel = UILabel()
+        statsLabel.textColor = .systemBlue
+        statsLabel.textAlignment = .center
+        statsLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        statsLabel.numberOfLines = 0
+        statsLabel.text = "编码统计: 等待开始..."
+        statsLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(statsLabel)
+        
         recordButton = UIButton(type: .system)
         recordButton.setTitle("REC", for: .normal)
         recordButton.backgroundColor = .red
@@ -90,6 +107,15 @@ class MainViewController: UIViewController {
             capabilitiesLabel.topAnchor.constraint(equalTo: infoLabel.bottomAnchor, constant: 8),
             capabilitiesLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             capabilitiesLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            
+            bitrateSegmentedControl.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            bitrateSegmentedControl.topAnchor.constraint(equalTo: capabilitiesLabel.bottomAnchor, constant: 12),
+            bitrateSegmentedControl.widthAnchor.constraint(equalToConstant: 200),
+            
+            statsLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            statsLabel.topAnchor.constraint(equalTo: bitrateSegmentedControl.bottomAnchor, constant: 8),
+            statsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            statsLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             
             recordButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             recordButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -50),
@@ -144,11 +170,18 @@ class MainViewController: UIViewController {
     
     private func displayCurrentInfo() {
         let info = cameraManager.getCurrentRecordingInfo()
-        let infoText = String(format: "4K %dfps | 防抖: %@ | HDR: %@",
+        let infoText = String(format: "4K %dfps | 防抖: %@ | HDR: %@ | %@",
                               info["frameRate"] as? Int ?? 30,
                               (info["stabilization"] as? Bool) == true ? "✓" : "✗",
-                              (info["hdrEnabled"] as? Bool) == true ? "✓" : "✗")
+                              (info["hdrEnabled"] as? Bool) == true ? "✓" : "✗",
+                              info["bitratePreset"] as? String ?? "standard")
         infoLabel.text = infoText
+    }
+    
+    @objc private func bitrateChanged() {
+        let presets: [VideoEncoderConfiguration.BitratePreset] = [.highQuality, .standard, .powerSaving, .compression]
+        let selectedPreset = presets[bitrateSegmentedControl.selectedSegmentIndex]
+        cameraManager.setBitratePreset(selectedPreset)
     }
     
     @objc private func toggleRecording() {
@@ -158,11 +191,13 @@ class MainViewController: UIViewController {
             recordButton.setTitle("STOP", for: .normal)
             recordButton.backgroundColor = .blue
             statusLabel.text = "录制中 (4K 抽帧中)..."
+            statsLabel.text = "编码统计: 编码中..."
         case .recording:
             cameraManager.stopRecording()
             recordButton.setTitle("REC", for: .normal)
             recordButton.backgroundColor = .red
             statusLabel.text = "已保存到相册"
+            statsLabel.text = "编码统计: 等待开始..."
         case .paused:
             break
         }
@@ -196,6 +231,8 @@ extension MainViewController: SimpleCameraManagerDelegate {
             message = "相机会话失败: \(err.localizedDescription)"
         case .writerFailed(let err):
             message = "写入失败: \(err.localizedDescription)"
+        case .encoderFailed(let err):
+            message = "编码失败: \(err.localizedDescription)"
         case .highFrameRateUnavailable:
             message = "设备不支持60fps，已降级至30fps"
         case .hdrUnavailable:
@@ -215,5 +252,17 @@ extension MainViewController: SimpleCameraManagerDelegate {
     
     func cameraManager(_ manager: SimpleCameraManager, didUpdateRecordingInfo info: [String: Any]) {
         displayCurrentInfo()
+    }
+    
+    func cameraManager(_ manager: SimpleCameraManager, didUpdateStatistics stats: [String: Any]) {
+        let bitrate = stats["averageBitrate"] as? Double ?? 0
+        let fps = stats["fps"] as? Double ?? 0
+        let encodedFrames = stats["encodedFrames"] as? Int ?? 0
+        let droppedFrames = stats["droppedFrames"] as? Int ?? 0
+        let bytes = stats["encodedBytes"] as? Double ?? 0
+        
+        let statsText = String(format: "码率: %.1f Mbps | FPS: %.1f | 编码: %d | 丢帧: %d | 大小: %.1f MB",
+                              bitrate, fps, encodedFrames, droppedFrames, bytes)
+        statsLabel.text = "编码统计: " + statsText
     }
 }
