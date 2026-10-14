@@ -17,6 +17,7 @@ final class MainViewController: UIViewController {
     private let bitrateControl = UISegmentedControl(items: ["35M", "25M", "15M", "10M"])
     private let recordButton = UIButton(type: .system)
     private let pauseButton = UIButton(type: .system)
+    private let libraryButton = UIButton(type: .system)
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var cancellables = Set<AnyCancellable>()
 
@@ -136,8 +137,13 @@ final class MainViewController: UIViewController {
         buttonHolder.translatesAutoresizingMaskIntoConstraints = false
         buttonHolder.addSubview(buttonRow)
 
+        libraryButton.setTitle("骑行记录", for: .normal)
+        libraryButton.setTitleColor(.white, for: .normal)
+        libraryButton.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        libraryButton.addTarget(self, action: #selector(showLibrary), for: .touchUpInside)
+
         let bottomStack = UIStackView(arrangedSubviews: [
-            distanceLabel, infoLabel, warningLabel, statusLabel, bitrateControl, buttonHolder
+            libraryButton, distanceLabel, infoLabel, warningLabel, statusLabel, bitrateControl, buttonHolder
         ])
         bottomStack.axis = .vertical
         bottomStack.spacing = 8
@@ -291,6 +297,13 @@ final class MainViewController: UIViewController {
         }
     }
 
+    @objc private func showLibrary() {
+        let library = LibraryViewController()
+        let navigation = UINavigationController(rootViewController: library)
+        navigation.modalPresentationStyle = .fullScreen
+        present(navigation, animated: true)
+    }
+
     @objc private func togglePause() {
         switch coordinator.camera.recordingState {
         case .recording:
@@ -317,22 +330,26 @@ final class MainViewController: UIViewController {
             recordButton.backgroundColor = .systemRed
             pauseButton.isHidden = true
             bitrateControl.isEnabled = true
+            libraryButton.isEnabled = true
         case .preparing, .stopping:
             recordButton.setTitle("···", for: .normal)
             pauseButton.isHidden = true
             bitrateControl.isEnabled = false
+            libraryButton.isEnabled = false
         case .recording:
             recordButton.setTitle("STOP", for: .normal)
             recordButton.backgroundColor = .systemRed
             pauseButton.isHidden = false
             setPauseSymbol(named: "pause.fill")
             bitrateControl.isEnabled = false
-            statusLabel.text = "录制中，长按可标记"
+            libraryButton.isEnabled = false
+            statusLabel.text = "录制中，长按可标记并切开片段"
         case .paused:
             recordButton.setTitle("STOP", for: .normal)
             pauseButton.isHidden = false
             setPauseSymbol(named: "play.fill")
             bitrateControl.isEnabled = false
+            libraryButton.isEnabled = false
             statusLabel.text = "已暂停"
         }
     }

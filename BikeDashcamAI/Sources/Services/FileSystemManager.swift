@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// 按骑行记录组织视频、缩略图和元数据目录。
 final class FileSystemManager {
@@ -50,6 +51,52 @@ final class FileSystemManager {
             .appendingPathComponent("\(segmentID.uuidString).jpg")
     }
 
+    func getSegmentDirectory(for recordingID: UUID) throws -> URL {
+        let url = recordingRoot(recordingID).appendingPathComponent("segments", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    func getThumbnailDirectory(for recordingID: UUID) throws -> URL {
+        let url = recordingRoot(recordingID).appendingPathComponent("thumbnails", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    func saveThumbnail(_ image: UIImage, for segmentID: UUID, in recordingID: UUID) throws -> String {
+        _ = try getThumbnailDirectory(for: recordingID)
+        let url = thumbnailURL(recordingID: recordingID, segmentID: segmentID)
+        guard let data = image.jpegData(compressionQuality: 0.8) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        try data.write(to: url, options: .atomic)
+        return "thumbnails/\(segmentID.uuidString).jpg"
+    }
+
+    func getThumbnailURL(segmentID: UUID, recordingID: UUID) -> URL? {
+        let url = thumbnailURL(recordingID: recordingID, segmentID: segmentID)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    func deleteSegmentFiles(_ segmentID: UUID, in recordingID: UUID) throws {
+        let video = segmentVideoURL(recordingID: recordingID, segmentID: segmentID)
+        let thumbnail = thumbnailURL(recordingID: recordingID, segmentID: segmentID)
+        if FileManager.default.fileExists(atPath: video.path) {
+            try FileManager.default.removeItem(at: video)
+        }
+        if FileManager.default.fileExists(atPath: thumbnail.path) {
+            try FileManager.default.removeItem(at: thumbnail)
+        }
+    }
+
+    func calculateStorageUsage(for recordingID: UUID) throws -> Int64 {
+        try directorySize(recordingRoot(recordingID))
+    }
+
+    func getTotalStorageUsage() throws -> Int64 {
+        try directorySize(recordingsURL)
+    }
+
     func deleteRecording(_ recordingID: UUID) throws {
         let root = recordingRoot(recordingID)
         guard FileManager.default.fileExists(atPath: root.path) else { return }
@@ -64,6 +111,17 @@ final class FileSystemManager {
     func availableCapacity() -> Int64 {
         let values = try? documentsURL.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         return values?.volumeAvailableCapacityForImportantUsage ?? 0
+    }
+
+    private func directorySize(_ url: URL) throws -> Int64 {
+        guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey]) else {
+            return 0
+        }
+        var total: Int64 = 0
+        for case let file as URL in enumerator {
+            total += fileSize(at: file)
+        }
+        return total
     }
 
     func cleanupTempFiles() throws {
