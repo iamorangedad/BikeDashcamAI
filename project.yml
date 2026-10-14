@@ -51,4 +51,8 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSCameraUsageDescription: "BikeDashcam需要使用相机来录制骑行视频"
+        NSLocationWhenInUseUsageDescription: "BikeDashcam需要使用位置服务来记录骑行轨迹和速度"
+        NSLocationAlwaysAndWhenInUseUsageDescription: "BikeDashcam需要在后台持续记录骑行数据"
         NSPhotoLibraryAddUsageDescription: "BikeDashcam需要保存录制的视频到相册"
+        UIBackgroundModes:
+          - location

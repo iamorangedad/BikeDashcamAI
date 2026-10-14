@@ -8,7 +8,7 @@ struct VideoEncoderConfiguration {
         case standard = "standard"
         case powerSaving = "power_saving"
         case compression = "compression"
-        
+
         var bitrate: Int {
             switch self {
             case .highQuality: return 35_000_000
@@ -17,7 +17,7 @@ struct VideoEncoderConfiguration {
             case .compression: return 10_000_000
             }
         }
-        
+
         var description: String {
             switch self {
             case .highQuality: return "高质量 (35Mbps)"
@@ -27,13 +27,11 @@ struct VideoEncoderConfiguration {
             }
         }
     }
-    
+
     var preset: BitratePreset = .standard
     var effectiveBitrate: Int { preset.bitrate }
-    
-    static var `default`: VideoEncoderConfiguration {
-        VideoEncoderConfiguration()
-    }
+
+    static var `default`: VideoEncoderConfiguration { VideoEncoderConfiguration() }
 }
 
 struct EncodingStatistics {
@@ -43,7 +41,7 @@ struct EncodingStatistics {
     var encodedBytes: Int64 = 0
     var encodingDuration: TimeInterval = 0
     var droppedFrameCount: Int = 0
-    
+
     var fps: Double {
         guard encodingDuration > 0 else { return 0 }
         return Double(encodedFrameCount) / encodingDuration
@@ -55,7 +53,7 @@ enum VideoEncoderError: LocalizedError {
     case creationFailed(OSStatus)
     case encodingFailed(OSStatus)
     case retryLimitExceeded
-    
+
     var errorDescription: String? {
         switch self {
         case .notInitialized: return "编码器未初始化"
@@ -70,339 +68,224 @@ enum EncodingState: String {
     case idle = "空闲"
     case configuring = "配置中"
     case encoding = "编码中"
-    case pausing = "暂停中"
     case paused = "已暂停"
     case stopping = "停止中"
     case error = "错误"
 }
 
+/// VideoToolbox HEVC 编码器。成片封装在 CameraManager 的 AVAssetWriter 里，
+/// 这里只输出编码后的样本，不再把裸码流写成 .mov。
 final class VideoEncoder {
     private(set) var configuration: VideoEncoderConfiguration
     private(set) var state: EncodingState = .idle
     private var compressionSession: VTCompressionSession?
-    private var outputFileURL: URL?
-    private var outputFileHandle: FileHandle?
     private let encodingQueue = DispatchQueue(label: "com.bikedashcam.videoencoder")
     private(set) var statistics = EncodingStatistics()
-    private var statisticsTimer: Timer?
-    private var retryCount: Int = 0
-    private let maxRetryCount: Int = 3
-    private var keyFrameCounter: Int = 0
-    private var frameSequenceNumber: Int64 = 0
+    private var retryCount = 0
+    private let maxRetryCount = 3
+    private var keyFrameCounter = 0
     private var encodingStartTime: Date?
-    
-    var stateUpdateHandler: ((EncodingState) -> Void)?
-    var frameEncodedHandler: ((Data, CMTime, Bool) -> Void)?
+    private var useMain10 = true
+    private var needsRebuild = false
+
+    var frameEncodedHandler: ((CMSampleBuffer) -> Void)?
     var errorHandler: ((Error) -> Void)?
     var statisticsHandler: ((EncodingStatistics) -> Void)?
-    var completionHandler: ((URL?, Error?) -> Void)?
-    
+
     init(configuration: VideoEncoderConfiguration = .default) {
         self.configuration = configuration
     }
-    
+
     deinit {
-        stopEncoding()
-        cleanup()
+        invalidateSession()
     }
-    
+
     func configure() throws {
         state = .configuring
-        cleanup()
-        
+        invalidateSession()
+        do {
+            try makeSession(main10: true)
+            useMain10 = true
+        } catch {
+            try makeSession(main10: false)
+            useMain10 = false
+        }
+        retryCount = 0
+        state = .idle
+    }
+
+    func startEncoding() throws {
+        if compressionSession == nil {
+            try configure()
+        }
+        guard compressionSession != nil else { throw VideoEncoderError.notInitialized }
+        guard state != .encoding else { return }
+        state = .encoding
+        statistics = EncodingStatistics()
+        encodingStartTime = Date()
+        keyFrameCounter = 0
+    }
+
+    func stopEncoding() {
+        guard state == .encoding || state == .paused else { return }
+        state = .stopping
+        if let session = compressionSession {
+            VTCompressionSessionCompleteFrames(session, untilPresentationTimeStamp: .invalid)
+        }
+        state = .idle
+    }
+
+    func pauseEncoding() {
+        guard state == .encoding else { return }
+        state = .paused
+    }
+
+    func resumeEncoding() {
+        guard state == .paused else { return }
+        state = .encoding
+    }
+
+    func encodeFrame(_ sampleBuffer: CMSampleBuffer) {
+        if needsRebuild {
+            needsRebuild = false
+            try? makeSession(main10: useMain10)
+        }
+        guard state == .encoding, let session = compressionSession else { return }
+        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        let forceKeyFrame = keyFrameCounter >= 120
+        let sourcePTS = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        let presentationTimeStamp = sourcePTS.isValid ? sourcePTS : CMTime(value: CMTimeValue(statistics.encodedFrameCount), timescale: 600)
+        let properties: CFDictionary? = forceKeyFrame
+            ? [kVTEncodeFrameOptionKey_ForceKeyFrame: true] as CFDictionary
+            : nil
+        var flags = VTEncodeInfoFlags()
+        let status = VTCompressionSessionEncodeFrame(
+            session,
+            imageBuffer: imageBuffer,
+            presentationTimeStamp: presentationTimeStamp,
+            duration: CMSampleBufferGetDuration(sampleBuffer),
+            frameProperties: properties,
+            sourceFrameRefcon: nil,
+            infoFlagsOut: &flags
+        )
+        if status != noErr {
+            noteEncodingFailure(status)
+        }
+        keyFrameCounter = forceKeyFrame ? 0 : keyFrameCounter + 1
+    }
+
+    func switchPreset(_ preset: VideoEncoderConfiguration.BitratePreset) {
+        configuration.preset = preset
+        guard let session = compressionSession else { return }
+        let bitrate = NSNumber(value: preset.bitrate)
+        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AverageBitRate, value: bitrate as CFTypeRef)
+    }
+
+    func reset() {
+        stopEncoding()
+        invalidateSession()
+        try? configure()
+    }
+
+    private func makeSession(main10: Bool) throws {
+        invalidateSession()
         var session: VTCompressionSession?
         let status = VTCompressionSessionCreate(
-            allocator: nil,
+            allocator: kCFAllocatorDefault,
             width: 3840,
             height: 2160,
             codecType: kCMVideoCodecType_HEVC,
             encoderSpecification: nil,
             imageBufferAttributes: nil,
             compressedDataAllocator: nil,
-            outputCallback: compressionSessionCallback,
+            outputCallback: encoderOutputCallback,
             refcon: Unmanaged.passUnretained(self).toOpaque(),
             compressionSessionOut: &session
         )
-        
-        guard status == noErr, let compressionSession = session else {
-            state = .idle
+        guard status == noErr, let session else {
             throw VideoEncoderError.creationFailed(status)
         }
-        
-        self.compressionSession = compressionSession
-        self.retryCount = 0
-        
-        try configureCompressionSession()
-        prepareOutputFile()
-        
-        state = .idle
-    }
-    
-    private func configureCompressionSession() throws {
-        guard let session = compressionSession else { return }
-        
+        compressionSession = session
         VTSessionSetProperty(session, key: kVTCompressionPropertyKey_RealTime, value: kCFBooleanTrue)
-        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: kVTProfileLevel_HEVC_Main_AutoLevel)
-        
-        let bitrate = NSNumber(value: configuration.effectiveBitrate)
-        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AverageBitRate, value: bitrate as CFTypeRef)
-        
-        let maxKeyFrameInterval = NSNumber(value: 120)
-        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: maxKeyFrameInterval as CFTypeRef)
-        
-        let status = VTCompressionSessionPrepareToEncodeFrames(session)
-        guard status == noErr else {
-            throw VideoEncoderError.creationFailed(status)
+        let profile = main10 ? kVTProfileLevel_HEVC_Main10_AutoLevel : kVTProfileLevel_HEVC_Main_AutoLevel
+        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: profile)
+        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AverageBitRate, value: NSNumber(value: configuration.effectiveBitrate) as CFTypeRef)
+        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration, value: NSNumber(value: 2) as CFTypeRef)
+        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanTrue)
+        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: NSNumber(value: 60) as CFTypeRef)
+        let prepare = VTCompressionSessionPrepareToEncodeFrames(session)
+        guard prepare == noErr else {
+            invalidateSession()
+            throw VideoEncoderError.creationFailed(prepare)
         }
     }
-    
-    private func prepareOutputFile() {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let fileName = "recording_\(Date().timeIntervalSince1970).mov"
-        outputFileURL = documentsPath.appendingPathComponent(fileName)
-        
-        let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: outputFileURL!.path) {
-            try? fileManager.removeItem(at: outputFileURL!)
-        }
-        
-        fileManager.createFile(atPath: outputFileURL!.path, contents: nil, attributes: nil)
-        
-        do {
-            outputFileHandle = try FileHandle(forWritingTo: outputFileURL!)
-        } catch {
-            print("文件创建失败: \(error)")
-        }
-    }
-    
-    func startEncoding() throws {
-        guard compressionSession != nil else {
-            throw VideoEncoderError.notInitialized
-        }
-        
-        if state == .encoding { return }
-        
-        state = .encoding
-        statistics = EncodingStatistics()
-        encodingStartTime = Date()
-        keyFrameCounter = 0
-        frameSequenceNumber = 0
-        
-        startStatisticsTimer()
-    }
-    
-    func stopEncoding() {
-        guard state == .encoding || state == .paused else { return }
-        
-        state = .stopping
-        stopStatisticsTimer()
-        
-        if let session = compressionSession {
-            VTCompressionSessionCompleteFrames(session, untilPresentationTimeStamp: .invalid)
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.finalizeEncoding()
-        }
-    }
-    
-    func pauseEncoding() {
-        guard state == .encoding else { return }
-        state = .paused
-    }
-    
-    func resumeEncoding() {
-        guard state == .paused else { return }
-        state = .encoding
-    }
-    
-    func encodeFrame(_ sampleBuffer: CMSampleBuffer, isKeyFrame: Bool = false) {
-        guard state == .encoding, let session = compressionSession else { return }
-        
-        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        
-        frameSequenceNumber += 1
-        let forceKeyFrame = isKeyFrame || keyFrameCounter >= 120
-        let presentationTimeStamp = CMTimeMake(value: frameSequenceNumber, timescale: 600)
-        
-        var callbackFlags = VTEncodeInfoFlags()
-        
-        let status = VTCompressionSessionEncodeFrame(
-            session,
-            imageBuffer: imageBuffer,
-            presentationTimeStamp: presentationTimeStamp,
-            duration: .invalid,
-            frameProperties: nil,
-            sourceFrameRefcon: nil,
-            infoFlagsOut: &callbackFlags
-        )
-        
-        if status != noErr {
-            handleEncodingError(status)
-        }
-        
-        keyFrameCounter = forceKeyFrame ? 0 : keyFrameCounter + 1
-    }
-    
-    func switchPreset(_ preset: VideoEncoderConfiguration.BitratePreset) {
-        configuration.preset = preset
-        
-        guard let session = compressionSession else { return }
-        let bitrate = NSNumber(value: preset.bitrate)
-        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AverageBitRate, value: bitrate as CFTypeRef)
-    }
-    
-    private let compressionSessionCallback: VTCompressionOutputCallback = { (
-        refCon: UnsafeMutableRawPointer?,
-        sourceFrameRefcon: UnsafeMutableRawPointer?,
-        status: OSStatus,
-        infoFlags: VTEncodeInfoFlags,
-        sampleBuffer: CMSampleBuffer?
-    ) in
-        guard let refCon = refCon else { return }
-        let encoder = Unmanaged<VideoEncoder>.fromOpaque(refCon).takeUnretainedValue()
-        
-        if status != noErr {
-            encoder.handleEncodingError(status)
-            return
-        }
-        
-        guard let buffer = sampleBuffer else { return }
-        encoder.handleEncodedFrame(buffer, infoFlags: infoFlags)
-    }
-    
-    private func handleEncodedFrame(_ sampleBuffer: CMSampleBuffer, infoFlags: VTEncodeInfoFlags) {
+
+    fileprivate func noteEncodingFailure(_ status: OSStatus) {
         encodingQueue.async { [weak self] in
-            guard let self = self else { return }
-            
-            if infoFlags.contains(.frameDropped) {
+            guard let self else { return }
+            self.retryCount += 1
+            if self.retryCount > self.maxRetryCount {
+                self.state = .error
+                self.needsRebuild = false
                 DispatchQueue.main.async {
-                    self.statistics.droppedFrameCount += 1
+                    self.errorHandler?(VideoEncoderError.retryLimitExceeded)
                 }
+                return
             }
-            
-            guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { return }
-            
-            var lengthAtOffset: Int = 0
-            var totalLength: Int = 0
-            var dataPointer: UnsafeMutablePointer<Int8>?
-            
-            let status = CMBlockBufferGetDataPointer(blockBuffer, atOffset: 0, lengthAtOffsetOut: &lengthAtOffset, totalLengthOut: &totalLength, dataPointerOut: &dataPointer)
-            
-            guard status == kCMBlockBufferNoErr, let data = dataPointer else { return }
-            
-            let encodedData = Data(bytes: data, count: totalLength)
-            
-            self.updateStatistics(with: encodedData.count)
-            self.writeToFile(encodedData)
-            
-            let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-            let isKeyFrame = !infoFlags.contains(.frameDropped)
-            
+            self.needsRebuild = true
             DispatchQueue.main.async {
-                self.frameEncodedHandler?(encodedData, timestamp, isKeyFrame)
+                self.errorHandler?(VideoEncoderError.encodingFailed(status))
             }
         }
     }
-    
-    private func handleEncodingError(_ status: OSStatus) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            let error = VideoEncoderError.encodingFailed(status)
-            
-            if self.retryCount < self.maxRetryCount {
-                self.retryCount += 1
-                do {
-                    try self.configure()
-                    try self.startEncoding()
-                } catch {
-                    self.errorHandler?(error)
-                    self.state = .idle
-                }
-            } else {
-                self.errorHandler?(VideoEncoderError.retryLimitExceeded)
-                self.state = .idle
-                self.stopEncoding()
+
+    fileprivate func handleEncodedFrame(_ sampleBuffer: CMSampleBuffer, infoFlags: VTEncodeInfoFlags) {
+        encodingQueue.async { [weak self] in
+            guard let self else { return }
+            if infoFlags.contains(.frameDropped) {
+                self.statistics.droppedFrameCount += 1
+            }
+            if let buffer = CMSampleBufferGetDataBuffer(sampleBuffer) {
+                self.statistics.encodedBytes += Int64(CMBlockBufferGetDataLength(buffer))
+            }
+            self.statistics.encodedFrameCount += 1
+            if let start = self.encodingStartTime {
+                self.statistics.encodingDuration = Date().timeIntervalSince(start)
+            }
+            if self.statistics.encodingDuration > 0 {
+                self.statistics.averageBitrate = Double(self.statistics.encodedBytes) * 8 / self.statistics.encodingDuration
+                self.statistics.currentBitrate = self.statistics.averageBitrate
+            }
+            let stats = self.statistics
+            DispatchQueue.main.async {
+                self.frameEncodedHandler?(sampleBuffer)
+                self.statisticsHandler?(stats)
             }
         }
     }
-    
-    private func writeToFile(_ data: Data) {
-        guard let handle = outputFileHandle else { return }
-        try? handle.write(contentsOf: data)
-    }
-    
-    private func startStatisticsTimer() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.statisticsTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-                self?.updateStatisticsDisplay()
-            }
-        }
-    }
-    
-    private func stopStatisticsTimer() {
-        statisticsTimer?.invalidate()
-        statisticsTimer = nil
-    }
-    
-    private func updateStatistics(with byteCount: Int) {
-        statistics.encodedFrameCount += 1
-        statistics.encodedBytes += Int64(byteCount)
-        
-        if let startTime = encodingStartTime {
-            statistics.encodingDuration = Date().timeIntervalSince(startTime)
-        }
-        
-        if statistics.encodingDuration > 0 {
-            statistics.averageBitrate = Double(statistics.encodedBytes) * 8 / statistics.encodingDuration
-        }
-    }
-    
-    private func updateStatisticsDisplay() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.statisticsHandler?(self.statistics)
-        }
-    }
-    
-    private func finalizeEncoding() {
-        outputFileHandle?.closeFile()
-        outputFileHandle = nil
-        
-        if let url = outputFileURL {
-            completionHandler?(url, nil)
-        }
-        
-        state = .idle
-        outputFileURL = nil
-    }
-    
-    private func cleanup() {
+
+    private func invalidateSession() {
         if let session = compressionSession {
             VTCompressionSessionInvalidate(session)
             compressionSession = nil
         }
-        
-        outputFileHandle?.closeFile()
-        outputFileHandle = nil
-        stopStatisticsTimer()
-        statistics = EncodingStatistics()
     }
-    
-    func reset() {
-        stopEncoding()
-        cleanup()
-        
-        do {
-            try configure()
-        } catch {
-            state = .idle
-        }
+}
+
+private func encoderOutputCallback(
+    refcon: UnsafeMutableRawPointer?,
+    sourceFrameRefcon: UnsafeMutableRawPointer?,
+    status: OSStatus,
+    infoFlags: VTEncodeInfoFlags,
+    sampleBuffer: CMSampleBuffer?
+) {
+    guard let refcon else { return }
+    let encoder = Unmanaged<VideoEncoder>.fromOpaque(refcon).takeUnretainedValue()
+    if status != noErr {
+        encoder.noteEncodingFailure(status)
+        return
     }
-    
-    func getOutputFileURL() -> URL? {
-        return outputFileURL
-    }
+    guard let sampleBuffer else { return }
+    encoder.handleEncodedFrame(sampleBuffer, infoFlags: infoFlags)
 }

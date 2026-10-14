@@ -9,8 +9,9 @@
 /* Begin PBXBuildFile section */
 		13E0D3C10BBBE6D64651C6C1 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B36C8C75FED7DF1CDE43087 /* MainViewController.swift */; };
 		16C241D878B9C8CE8E53A4E9 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 671C93E7A4391F93846934D1 /* CameraManager.swift */; };
-		20BE3F76425A7FDD59279767 /* SimpleCameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C72E418E5A02847D121E687D /* SimpleCameraManager.swift */; };
 		307210EC3B20CF033945F357 /* RecordingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F2B665ADCAE099796CF3A4 /* RecordingCoordinator.swift */; };
+		A9B8C7D6E5F4039281A0B1C3 /* FileSystemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B8C7D6E5F4039281A0B1C2 /* FileSystemManager.swift */; };
+		F1A2B3C4D5E6F708192A3B4D /* FrameExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4C /* FrameExtractor.swift */; };
 		34C2C3D0D53E41DAF1E4025A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B9F360DE38FFBBD9A198A3E /* AppDelegate.swift */; };
 		52E643259046A6E269C286A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5017D883B83863251FCD6DE4 /* Assets.xcassets */; };
 		5F7965D86C69EEE12E4D7F98 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E206C10370E22AD25CD6CF84 /* SceneDelegate.swift */; };
@@ -29,8 +30,9 @@
 		671C93E7A4391F93846934D1 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		6822E6331BD9157FD5CFFCF2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		872F32A73220974E930054A4 /* BikeDashcamAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BikeDashcamAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A9B8C7D6E5F4039281A0B1C2 /* FileSystemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemManager.swift; sourceTree = "<group>"; };
 		B6637A3F19373165A942F52E /* SensorDataCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorDataCollector.swift; sourceTree = "<group>"; };
-		C72E418E5A02847D121E687D /* SimpleCameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleCameraManager.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E6F708192A3B4C /* FrameExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameExtractor.swift; sourceTree = "<group>"; };
 		E206C10370E22AD25CD6CF84 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -77,9 +79,10 @@
 			isa = PBXGroup;
 			children = (
 				671C93E7A4391F93846934D1 /* CameraManager.swift */,
+				F1A2B3C4D5E6F708192A3B4C /* FrameExtractor.swift */,
+				A9B8C7D6E5F4039281A0B1C2 /* FileSystemManager.swift */,
 				39F2B665ADCAE099796CF3A4 /* RecordingCoordinator.swift */,
 				B6637A3F19373165A942F52E /* SensorDataCollector.swift */,
-				C72E418E5A02847D121E687D /* SimpleCameraManager.swift */,
 				45CD279379C97E930954F636 /* VideoEncoder.swift */,
 			);
 			path = Services;
@@ -174,7 +177,8 @@
 				307210EC3B20CF033945F357 /* RecordingCoordinator.swift in Sources */,
 				5F7965D86C69EEE12E4D7F98 /* SceneDelegate.swift in Sources */,
 				F2144B31027A7761FA6345E6 /* SensorDataCollector.swift in Sources */,
-				20BE3F76425A7FDD59279767 /* SimpleCameraManager.swift in Sources */,
+				A9B8C7D6E5F4039281A0B1C3 /* FileSystemManager.swift in Sources */,
+				F1A2B3C4D5E6F708192A3B4D /* FrameExtractor.swift in Sources */,
 				892FECE4275311436A47BFAF /* VideoEncoder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
