@@ -2,426 +2,454 @@ import UIKit
 import AVFoundation
 import Combine
 
-class MainViewController: UIViewController {
-    private var previewView: UIView!
-    private var recordButton: UIButton!
-    private var statusLabel: UILabel!
-    private var frameCountLabel: UILabel!
-    private var infoLabel: UILabel!
-    private var capabilitiesLabel: UILabel!
-    private var bitrateSegmentedControl: UISegmentedControl!
-    private var statsLabel: UILabel!
-    private var sensorDataLabel: UILabel!
-    private var speedDistanceView: UIView!
-    private var currentSpeedLabel: UILabel!
-    private var totalDistanceLabel: UILabel!
-    private var averageSpeedLabel: UILabel!
-    private var cameraManager: SimpleCameraManager!
-    private var sensorCollector: SensorDataCollector!
+final class MainViewController: UIViewController {
+    private let previewView = UIView()
+    private let topPanel = UIView()
+    private let bottomPanel = UIView()
+    private let speedLabel = UILabel()
+    private let averageSpeedLabel = UILabel()
+    private let durationLabel = UILabel()
+    private let sizeLabel = UILabel()
+    private let distanceLabel = UILabel()
+    private let infoLabel = UILabel()
+    private let warningLabel = UILabel()
+    private let statusLabel = UILabel()
+    private let bitrateControl = UISegmentedControl(items: ["35M", "25M", "15M", "10M"])
+    private let recordButton = UIButton(type: .system)
+    private let pauseButton = UIButton(type: .system)
+    private let libraryButton = UIButton(type: .system)
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var cancellables = Set<AnyCancellable>()
-    
+
+    private let coordinator = RecordingCoordinator(camera: CameraManager(), sensors: .shared)
+    private var markCount = 0
+    private var distanceKilometers = 0.0
+
+    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        setupCameraManager()
-        setupSensorCollector()
+        coordinator.camera.delegate = self
+        startPipeline()
     }
-    
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         previewLayer?.frame = previewView.bounds
+        updatePreviewOrientation()
     }
-    
+
     private func setupUI() {
         view.backgroundColor = .black
-        
-        previewView = UIView()
-        previewView.backgroundColor = .darkGray
+
+        previewView.backgroundColor = .black
         previewView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(previewView)
-        
-        statusLabel = UILabel()
-        statusLabel.textColor = .white
-        statusLabel.textAlignment = .center
-        statusLabel.text = "准备就绪"
-        statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(statusLabel)
-        
-        frameCountLabel = UILabel()
-        frameCountLabel.textColor = .lightGray
-        frameCountLabel.textAlignment = .center
-        frameCountLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 14, weight: .regular)
-        frameCountLabel.text = "保存帧: 0 / 总帧: 0 (0%)"
-        frameCountLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(frameCountLabel)
-        
-        infoLabel = UILabel()
-        infoLabel.textColor = .systemGreen
-        infoLabel.textAlignment = .center
+
+        configure(panel: topPanel)
+        configure(panel: bottomPanel)
+        view.addSubview(topPanel)
+        view.addSubview(bottomPanel)
+
+        speedLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 40, weight: .bold)
+        speedLabel.textColor = .white
+        speedLabel.text = "--"
+        let unitLabel = UILabel()
+        unitLabel.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
+        unitLabel.textColor = UIColor.white.withAlphaComponent(0.75)
+        unitLabel.text = "km/h"
+        averageSpeedLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+        averageSpeedLabel.textColor = UIColor.white.withAlphaComponent(0.75)
+        averageSpeedLabel.text = "平均 -- km/h"
+
+        let speedValueRow = UIStackView(arrangedSubviews: [speedLabel, unitLabel])
+        speedValueRow.axis = .horizontal
+        speedValueRow.alignment = .lastBaseline
+        speedValueRow.spacing = 4
+
+        durationLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 22, weight: .semibold)
+        durationLabel.textColor = .white
+        durationLabel.textAlignment = .right
+        durationLabel.text = "00:00:00"
+        sizeLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+        sizeLabel.textColor = UIColor.white.withAlphaComponent(0.75)
+        sizeLabel.textAlignment = .right
+        sizeLabel.text = "0 MB"
+
+        let speedStack = UIStackView(arrangedSubviews: [speedValueRow, averageSpeedLabel])
+        speedStack.axis = .vertical
+        speedStack.spacing = 2
+        let timeStack = UIStackView(arrangedSubviews: [durationLabel, sizeLabel])
+        timeStack.axis = .vertical
+        timeStack.spacing = 2
+        let topRow = UIStackView(arrangedSubviews: [speedStack, timeStack])
+        topRow.axis = .horizontal
+        topRow.distribution = .equalSpacing
+        topRow.alignment = .center
+        topRow.translatesAutoresizingMaskIntoConstraints = false
+        topPanel.addSubview(topRow)
+
+        distanceLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
+        distanceLabel.textColor = .white
+        distanceLabel.text = "距离 0.00 km"
         infoLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        infoLabel.textColor = UIColor.white.withAlphaComponent(0.8)
         infoLabel.numberOfLines = 2
-        infoLabel.text = "初始化中..."
-        infoLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(infoLabel)
-        
-        capabilitiesLabel = UILabel()
-        capabilitiesLabel.textColor = .secondaryLabel
-        capabilitiesLabel.textAlignment = .center
-        capabilitiesLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        capabilitiesLabel.numberOfLines = 0
-        capabilitiesLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(capabilitiesLabel)
-        
-        bitrateSegmentedControl = UISegmentedControl(items: ["35M", "25M", "15M", "10M"])
-        bitrateSegmentedControl.selectedSegmentIndex = 1
-        bitrateSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
-        bitrateSegmentedControl.addTarget(self, action: #selector(bitrateChanged), for: .valueChanged)
-        view.addSubview(bitrateSegmentedControl)
-        
-        speedDistanceView = UIView()
-        speedDistanceView.backgroundColor = UIColor.white.withAlphaComponent(0.1)
-        speedDistanceView.layer.cornerRadius = 12
-        speedDistanceView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(speedDistanceView)
-        
-        let speedStackView = UIStackView()
-        speedStackView.axis = .horizontal
-        speedStackView.distribution = .fillEqually
-        speedStackView.spacing = 8
-        speedStackView.translatesAutoresizingMaskIntoConstraints = false
-        speedDistanceView.addSubview(speedStackView)
-        
-        let currentSpeedContainer = createMetricContainer()
-        currentSpeedLabel = createMetricLabel(title: "当前速度", value: "0.0 km/h", container: currentSpeedContainer)
-        
-        let totalDistanceContainer = createMetricContainer()
-        totalDistanceLabel = createMetricLabel(title: "总距离", value: "0.00 km", container: totalDistanceContainer)
-        
-        let averageSpeedContainer = createMetricContainer()
-        averageSpeedLabel = createMetricLabel(title: "平均速度", value: "0.0 km/h", container: averageSpeedContainer)
-        
-        speedStackView.addArrangedSubview(currentSpeedContainer)
-        speedStackView.addArrangedSubview(totalDistanceContainer)
-        speedStackView.addArrangedSubview(averageSpeedContainer)
-        
-        NSLayoutConstraint.activate([
-            speedStackView.topAnchor.constraint(equalTo: speedDistanceView.topAnchor, constant: 8),
-            speedStackView.leadingAnchor.constraint(equalTo: speedDistanceView.leadingAnchor, constant: 8),
-            speedStackView.trailingAnchor.constraint(equalTo: speedDistanceView.trailingAnchor, constant: -8),
-            speedStackView.bottomAnchor.constraint(equalTo: speedDistanceView.bottomAnchor, constant: -8)
-        ])
-        
-        statsLabel = UILabel()
-        statsLabel.textColor = .systemBlue
-        statsLabel.textAlignment = .center
-        statsLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        statsLabel.numberOfLines = 0
-        statsLabel.text = "编码统计: 等待开始..."
-        statsLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(statsLabel)
-        
-        sensorDataLabel = UILabel()
-        sensorDataLabel.textColor = .systemOrange
-        sensorDataLabel.textAlignment = .center
-        sensorDataLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
-        sensorDataLabel.numberOfLines = 0
-        sensorDataLabel.text = "传感器: 等待GPS..."
-        sensorDataLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(sensorDataLabel)
-        
-        recordButton = UIButton(type: .system)
+        infoLabel.text = "正在配置相机"
+        warningLabel.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
+        warningLabel.textColor = .systemOrange
+        warningLabel.numberOfLines = 2
+        warningLabel.text = ""
+        statusLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
+        statusLabel.textColor = UIColor.white.withAlphaComponent(0.85)
+        statusLabel.text = "准备就绪"
+        bitrateControl.selectedSegmentIndex = 1
+        bitrateControl.selectedSegmentTintColor = .white
+        bitrateControl.addTarget(self, action: #selector(bitrateChanged), for: .valueChanged)
+
         recordButton.setTitle("REC", for: .normal)
-        recordButton.backgroundColor = .red
         recordButton.setTitleColor(.white, for: .normal)
-        recordButton.layer.cornerRadius = 35
+        recordButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
+        recordButton.backgroundColor = .systemRed
+        recordButton.layer.cornerRadius = 36
         recordButton.translatesAutoresizingMaskIntoConstraints = false
         recordButton.addTarget(self, action: #selector(toggleRecording), for: .touchUpInside)
-        view.addSubview(recordButton)
-        
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(markRide))
+        longPress.minimumPressDuration = 0.45
+        longPress.cancelsTouchesInView = true
+        recordButton.addGestureRecognizer(longPress)
+
+        pauseButton.tintColor = .white
+        pauseButton.backgroundColor = UIColor.white.withAlphaComponent(0.16)
+        pauseButton.layer.cornerRadius = 22
+        pauseButton.isHidden = true
+        pauseButton.translatesAutoresizingMaskIntoConstraints = false
+        pauseButton.addTarget(self, action: #selector(togglePause), for: .touchUpInside)
+        setPauseSymbol(named: "pause.fill")
+
+        let buttonRow = UIStackView(arrangedSubviews: [pauseButton, recordButton])
+        buttonRow.axis = .horizontal
+        buttonRow.alignment = .center
+        buttonRow.spacing = 28
+        buttonRow.translatesAutoresizingMaskIntoConstraints = false
+        let buttonHolder = UIView()
+        buttonHolder.translatesAutoresizingMaskIntoConstraints = false
+        buttonHolder.addSubview(buttonRow)
+
+        libraryButton.setTitle("骑行记录", for: .normal)
+        libraryButton.setTitleColor(.white, for: .normal)
+        libraryButton.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        libraryButton.addTarget(self, action: #selector(showLibrary), for: .touchUpInside)
+
+        let bottomStack = UIStackView(arrangedSubviews: [
+            libraryButton, distanceLabel, infoLabel, warningLabel, statusLabel, bitrateControl, buttonHolder
+        ])
+        bottomStack.axis = .vertical
+        bottomStack.spacing = 8
+        bottomStack.alignment = .fill
+        bottomStack.translatesAutoresizingMaskIntoConstraints = false
+        bottomPanel.addSubview(bottomStack)
+
         NSLayoutConstraint.activate([
-            previewView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            previewView.topAnchor.constraint(equalTo: view.topAnchor),
             previewView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             previewView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            previewView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.45),
-            
-            statusLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            statusLabel.topAnchor.constraint(equalTo: previewView.bottomAnchor, constant: 16),
-            
-            frameCountLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            frameCountLabel.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 6),
-            
-            infoLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            infoLabel.topAnchor.constraint(equalTo: frameCountLabel.bottomAnchor, constant: 6),
-            
-            capabilitiesLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            capabilitiesLabel.topAnchor.constraint(equalTo: infoLabel.bottomAnchor, constant: 6),
-            capabilitiesLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            capabilitiesLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            
-            bitrateSegmentedControl.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            bitrateSegmentedControl.topAnchor.constraint(equalTo: capabilitiesLabel.bottomAnchor, constant: 12),
-            bitrateSegmentedControl.widthAnchor.constraint(equalToConstant: 200),
-            
-            speedDistanceView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            speedDistanceView.topAnchor.constraint(equalTo: bitrateSegmentedControl.bottomAnchor, constant: 12),
-            speedDistanceView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            speedDistanceView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            speedDistanceView.heightAnchor.constraint(equalToConstant: 70),
-            
-            statsLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            statsLabel.topAnchor.constraint(equalTo: speedDistanceView.bottomAnchor, constant: 8),
-            
-            sensorDataLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            sensorDataLabel.topAnchor.constraint(equalTo: statsLabel.bottomAnchor, constant: 6),
-            sensorDataLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            sensorDataLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            
-            recordButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            recordButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -30),
-            recordButton.widthAnchor.constraint(equalToConstant: 70),
-            recordButton.heightAnchor.constraint(equalToConstant: 70)
+            previewView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            topPanel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            topPanel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            topPanel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+
+            topRow.topAnchor.constraint(equalTo: topPanel.topAnchor, constant: 12),
+            topRow.leadingAnchor.constraint(equalTo: topPanel.leadingAnchor, constant: 16),
+            topRow.trailingAnchor.constraint(equalTo: topPanel.trailingAnchor, constant: -16),
+            topRow.bottomAnchor.constraint(equalTo: topPanel.bottomAnchor, constant: -12),
+
+            bottomPanel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            bottomPanel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            bottomPanel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+
+            bottomStack.topAnchor.constraint(equalTo: bottomPanel.topAnchor, constant: 14),
+            bottomStack.leadingAnchor.constraint(equalTo: bottomPanel.leadingAnchor, constant: 16),
+            bottomStack.trailingAnchor.constraint(equalTo: bottomPanel.trailingAnchor, constant: -16),
+            bottomStack.bottomAnchor.constraint(equalTo: bottomPanel.bottomAnchor, constant: -14),
+
+            recordButton.widthAnchor.constraint(equalToConstant: 72),
+            recordButton.heightAnchor.constraint(equalToConstant: 72),
+            pauseButton.widthAnchor.constraint(equalToConstant: 44),
+            pauseButton.heightAnchor.constraint(equalToConstant: 44),
+
+            buttonRow.centerXAnchor.constraint(equalTo: buttonHolder.centerXAnchor),
+            buttonRow.topAnchor.constraint(equalTo: buttonHolder.topAnchor),
+            buttonRow.bottomAnchor.constraint(equalTo: buttonHolder.bottomAnchor)
         ])
     }
-    
-    private func createMetricContainer() -> UIView {
-        let container = UIView()
-        container.backgroundColor = UIColor.white.withAlphaComponent(0.05)
-        container.layer.cornerRadius = 8
-        container.translatesAutoresizingMaskIntoConstraints = false
-        return container
-    }
-    
-    private func createMetricLabel(title: String, value: String, container: UIView) -> UILabel {
-        let titleLabel = UILabel()
-        titleLabel.text = title
-        titleLabel.textColor = .lightGray
-        titleLabel.font = UIFont.systemFont(ofSize: 10)
-        titleLabel.textAlignment = .center
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        
-        let valueLabel = UILabel()
-        valueLabel.text = value
-        valueLabel.textColor = .white
-        valueLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 18, weight: .bold)
-        valueLabel.textAlignment = .center
-        valueLabel.translatesAutoresizingMaskIntoConstraints = false
-        
-        container.addSubview(titleLabel)
-        container.addSubview(valueLabel)
-        
-        NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
-            titleLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            
-            valueLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            valueLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor)
-        ])
-        
-        return valueLabel
-    }
-    
-    private func setupCameraManager() {
-        cameraManager = SimpleCameraManager()
-        cameraManager.delegate = self
-        
+
+    private func startPipeline() {
         Task {
-            let hasPermission = await cameraManager.checkPermission()
-            if hasPermission {
-                do {
-                    try cameraManager.setupSession()
-                    cameraManager.startSession()
-                    setupPreviewLayer()
-                    displayCapabilities()
-                    displayCurrentInfo()
-                } catch {
-                    showError("相机配置失败: \(error.localizedDescription)")
-                }
-            } else {
+            let granted = await coordinator.camera.checkPermission()
+            guard granted else {
                 showError("请在设置中允许相机权限")
+                return
             }
-        }
-    }
-    
-    private func setupSensorCollector() {
-        sensorCollector = SensorDataCollector.shared
-        
-        Task {
-            let (motionOK, locationOK) = await sensorCollector.checkPermissions()
-            if locationOK {
-                sensorCollector.startCollection()
-                subscribeToSensorData()
+            do {
+                try coordinator.camera.setupSession()
+                coordinator.camera.startSession()
+                installPreview()
+            } catch {
+                showError(error.localizedDescription)
+                return
+            }
+
+            let (_, locationGranted) = await coordinator.sensors.checkPermissions()
+            if locationGranted {
+                coordinator.sensors.startCollection()
+                subscribeToSensors()
             } else {
-                showError("请在设置中允许位置权限")
+                statusLabel.text = "未获得定位，仍可录制视频"
             }
+            refreshWarnings()
         }
     }
-    
-    private func subscribeToSensorData() {
-        sensorCollector.sensorFramePublisher
+
+    private func subscribeToSensors() {
+        coordinator.sensors.sensorFramePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] frame in
-                self?.updateSensorDisplay(frame)
+                self?.render(frame)
             }
             .store(in: &cancellables)
-        
-        sensorCollector.statisticsPublisher
+
+        coordinator.sensors.statisticsPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] stats in
-                self?.updateStatisticsDisplay(stats)
+                let kmh = stats.averageSpeed * 3.6
+                self?.averageSpeedLabel.text = String(format: "平均 %.1f km/h", kmh)
             }
             .store(in: &cancellables)
     }
-    
-    private func updateSensorDisplay(_ frame: SensorFrame) {
-        let speed = frame.currentSpeed ?? 0
-        let speedKmh = speed * 3.6
-        currentSpeedLabel.text = String(format: "%.1f km/h", speedKmh)
-        
-        let distance = frame.totalDistance ?? 0
-        totalDistanceLabel.text = String(format: "%.2f km", distance / 1000.0)
-        
-        var sensorText = "传感器: "
-        if let lat = frame.latitude, let lon = frame.longitude {
-            sensorText += String(format: "%.5f, %.5f | ", lat, lon)
+
+    private func render(_ frame: SensorFrame) {
+        if let speed = frame.currentSpeed {
+            speedLabel.text = String(format: "%.1f", speed * 3.6)
+        } else {
+            speedLabel.text = "--"
         }
-        sensorText += String(format: "Acc: %.2f | Gyro: %.2f", 
-                            sqrt(frame.accelerationX * frame.accelerationX + frame.accelerationY * frame.accelerationY + frame.accelerationZ * frame.accelerationZ),
-                            sqrt(frame.gyroscopeX * frame.gyroscopeX + frame.gyroscopeY * frame.gyroscopeY + frame.gyroscopeZ * frame.gyroscopeZ))
-        
-        if let accuracy = frame.horizontalAccuracy {
-            sensorText += String(format: " | GPS精度: %.0fm", accuracy)
-        }
-        
-        sensorDataLabel.text = sensorText
+        distanceKilometers = (frame.totalDistance ?? 0) / 1000
+        updateDistance(coordinator.camera.statisticsSnapshot())
     }
-    
-    private func updateStatisticsDisplay(_ stats: SensorStatistics) {
-        let avgSpeedKmh = stats.averageSpeed * 3.6
-        averageSpeedLabel.text = String(format: "%.1f km/h", avgSpeedKmh)
-    }
-    
-    private func setupPreviewLayer() {
-        guard let session = cameraManager.captureSession else { return }
-        
+
+    private func installPreview() {
+        guard let session = coordinator.camera.captureSession else { return }
         let layer = AVCaptureVideoPreviewLayer(session: session)
         layer.videoGravity = .resizeAspectFill
         layer.frame = previewView.bounds
         previewView.layer.insertSublayer(layer, at: 0)
         previewLayer = layer
+        updatePreviewOrientation()
     }
-    
-    private func displayCapabilities() {
-        let capabilities = cameraManager.getSupportedCapabilities()
-        
-        var capabilityText = "设备支持:\n"
-        capabilityText += "• 4K: \((capabilities["4KSupport"] as? Bool) == true ? "✓" : "✗")  "
-        capabilityText += "60fps: \((capabilities["60fpsSupport"] as? Bool) == true ? "✓" : "✗")  "
-        capabilityText += "HDR: \((capabilities["HDRSupport"] as? Bool) == true ? "✓" : "✗")\n"
-        capabilityText += "• 防抖: ✓ (cinematicExtended)"
-        
-        capabilitiesLabel.text = capabilityText
+
+    private func updatePreviewOrientation() {
+        guard let connection = previewLayer?.connection else { return }
+        let angle: CGFloat
+        switch view.window?.windowScene?.interfaceOrientation {
+        case .landscapeRight: angle = 180
+        case .landscapeLeft: angle = 0
+        case .portraitUpsideDown: angle = 270
+        default: angle = 90
+        }
+        if connection.isVideoRotationAngleSupported(angle) {
+            connection.videoRotationAngle = angle
+        }
     }
-    
-    private func displayCurrentInfo() {
-        let info = cameraManager.getCurrentRecordingInfo()
-        let infoText = String(format: "4K %dfps | 防抖: %@ | HDR: %@ | %@",
-                              info["frameRate"] as? Int ?? 30,
-                              (info["stabilization"] as? Bool) == true ? "✓" : "✗",
-                              (info["hdrEnabled"] as? Bool) == true ? "✓" : "✗",
-                              info["bitratePreset"] as? String ?? "standard")
-        infoLabel.text = infoText
-    }
-    
+
     @objc private func bitrateChanged() {
         let presets: [VideoEncoderConfiguration.BitratePreset] = [.highQuality, .standard, .powerSaving, .compression]
-        let selectedPreset = presets[bitrateSegmentedControl.selectedSegmentIndex]
-        cameraManager.setBitratePreset(selectedPreset)
+        let index = bitrateControl.selectedSegmentIndex
+        guard presets.indices.contains(index) else { return }
+        coordinator.camera.setBitratePreset(presets[index])
     }
-    
+
     @objc private func toggleRecording() {
-        switch cameraManager.recordingState {
+        switch coordinator.camera.recordingState {
         case .idle:
-            cameraManager.startRecording()
-            recordButton.setTitle("STOP", for: .normal)
-            recordButton.backgroundColor = .blue
-            statusLabel.text = "录制中 (4K 抽帧中)..."
-            statsLabel.text = "编码统计: 编码中..."
-        case .recording:
-            cameraManager.stopRecording()
-            recordButton.setTitle("REC", for: .normal)
-            recordButton.backgroundColor = .red
-            statusLabel.text = "已保存到相册"
-            statsLabel.text = "编码统计: 等待开始..."
-        case .paused:
+            refreshWarnings()
+            do {
+                markCount = 0
+                try coordinator.startRecording()
+            } catch {
+                showError(error.localizedDescription)
+            }
+        case .recording, .paused:
+            statusLabel.text = "正在保存"
+            coordinator.stopRecording { [weak self] result in
+                switch result {
+                case .success(let metadata):
+                    self?.statusLabel.text = "已保存 \(metadata.videoFileName)"
+                case .failure(let error):
+                    self?.statusLabel.text = "保存失败"
+                    self?.showError(error.localizedDescription)
+                }
+            }
+        case .preparing, .stopping:
             break
         }
     }
-    
-    private func showError(_ message: String) {
-        let alert = UIAlertController(title: "错误", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
-        present(alert, animated: true)
-    }
-    
-    deinit {
-        sensorCollector.stopCollection()
-    }
-}
 
-extension MainViewController: SimpleCameraManagerDelegate {
-    func cameraManager(_ manager: SimpleCameraManager, didChangeState state: SimpleRecordingState) {
+    @objc private func showLibrary() {
+        let library = LibraryViewController()
+        let navigation = UINavigationController(rootViewController: library)
+        navigation.modalPresentationStyle = .fullScreen
+        present(navigation, animated: true)
+    }
+
+    @objc private func togglePause() {
+        switch coordinator.camera.recordingState {
+        case .recording:
+            coordinator.pauseRecording()
+        case .paused:
+            coordinator.resumeRecording()
+        default:
+            break
+        }
+    }
+
+    @objc private func markRide(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        guard coordinator.camera.recordingState == .recording || coordinator.camera.recordingState == .paused else { return }
+        coordinator.addMark()
+        markCount += 1
+        warningLabel.text = "已标记 \(formatDuration(coordinator.camera.recordingDuration))  ·  共 \(markCount) 处"
+    }
+
+    private func renderTransport(_ state: RecordingState) {
         switch state {
         case .idle:
-            statusLabel.text = "已保存到相册"
+            recordButton.setTitle("REC", for: .normal)
+            recordButton.backgroundColor = .systemRed
+            pauseButton.isHidden = true
+            bitrateControl.isEnabled = true
+            libraryButton.isEnabled = true
+        case .preparing, .stopping:
+            recordButton.setTitle("···", for: .normal)
+            pauseButton.isHidden = true
+            bitrateControl.isEnabled = false
+            libraryButton.isEnabled = false
         case .recording:
-            statusLabel.text = "录制中 (4K 抽帧中)..."
+            recordButton.setTitle("STOP", for: .normal)
+            recordButton.backgroundColor = .systemRed
+            pauseButton.isHidden = false
+            setPauseSymbol(named: "pause.fill")
+            bitrateControl.isEnabled = false
+            libraryButton.isEnabled = false
+            statusLabel.text = "录制中，长按可标记并切开片段"
         case .paused:
+            recordButton.setTitle("STOP", for: .normal)
+            pauseButton.isHidden = false
+            setPauseSymbol(named: "play.fill")
+            bitrateControl.isEnabled = false
+            libraryButton.isEnabled = false
             statusLabel.text = "已暂停"
         }
     }
-    
-    func cameraManager(_ manager: SimpleCameraManager, didFailWithError error: SimpleCameraError) {
-        let message: String
-        switch error {
-        case .permissionDenied:
-            message = "相机权限被拒绝"
-        case .sessionFailed(let err):
-            message = "相机会话失败: \(err.localizedDescription)"
-        case .writerFailed(let err):
-            message = "写入失败: \(err.localizedDescription)"
-        case .encoderFailed(let err):
-            message = "编码失败: \(err.localizedDescription)"
-        case .highFrameRateUnavailable:
-            message = "设备不支持60fps，已降级至30fps"
-        case .hdrUnavailable:
-            message = "设备不支持HDR"
-        case .deviceUnavailable:
-            message = "相机设备不可用"
-        case .unknown:
-            message = "未知错误"
+
+    private func apply(_ configuration: CaptureConfiguration) {
+        let hdr = configuration.hdrSupported ? "HDR 可用" : "HDR 不可用"
+        infoLabel.text = "\(configuration.width)×\(configuration.height) · \(configuration.frameRate)fps · HEVC \(configuration.bitratePreset.bitrate / 1_000_000)Mbps · \(configuration.colorSpace) · \(hdr)"
+    }
+
+    private func apply(_ statistics: RecordingStatistics) {
+        durationLabel.text = formatDuration(statistics.duration)
+        sizeLabel.text = formatBytes(statistics.fileBytes)
+        updateDistance(statistics)
+    }
+
+    private func updateDistance(_ statistics: RecordingStatistics) {
+        let recording = coordinator.camera.recordingState == .recording
+            || coordinator.camera.recordingState == .paused
+            || statistics.encodedFrames > 0
+        if recording {
+            distanceLabel.text = String(
+                format: "距离 %.2f km  ·  分析帧 %d  ·  丢帧 %d",
+                distanceKilometers,
+                statistics.sampledFrames,
+                statistics.droppedFrames
+            )
+        } else {
+            distanceLabel.text = String(format: "距离 %.2f km", distanceKilometers)
         }
-        showError(message)
     }
-    
-    func cameraManager(_ manager: SimpleCameraManager, didUpdateFrameCount current: Int, total: Int) {
-        let percentage = total > 0 ? Int(Double(current) / Double(total) * 100) : 0
-        frameCountLabel.text = "保存帧: \(current) / 总帧: \(total) (\(percentage)%)"
+
+    private func refreshWarnings() {
+        var messages: [String] = []
+        let capacity = FileSystemManager.shared.availableCapacity()
+        if capacity > 0 && capacity < 500_000_000 {
+            messages.append("存储空间不足")
+        }
+        switch ProcessInfo.processInfo.thermalState {
+        case .serious, .critical:
+            messages.append("设备温度过高")
+        default:
+            break
+        }
+        if markCount == 0 {
+            warningLabel.text = messages.joined(separator: "  ·  ")
+        }
     }
-    
-    func cameraManager(_ manager: SimpleCameraManager, didUpdateRecordingInfo info: [String: Any]) {
-        displayCurrentInfo()
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let total = max(0, Int(duration))
+        return String(format: "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
     }
-    
-    func cameraManager(_ manager: SimpleCameraManager, didUpdateStatistics stats: [String: Any]) {
-        let bitrate = stats["averageBitrate"] as? Double ?? 0
-        let fps = stats["fps"] as? Double ?? 0
-        let encodedFrames = stats["encodedFrames"] as? Int ?? 0
-        let droppedFrames = stats["droppedFrames"] as? Int ?? 0
-        let bytes = stats["encodedBytes"] as? Double ?? 0
-        
-        let statsText = String(format: "码率: %.1f Mbps | FPS: %.1f | 编码: %d | 丢帧: %d | 大小: %.1f MB",
-                              bitrate, fps, encodedFrames, droppedFrames, bytes)
-        statsLabel.text = "编码统计: " + statsText
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        let mb = Double(bytes) / 1_000_000
+        if mb >= 1000 {
+            return String(format: "%.2f GB", mb / 1000)
+        }
+        return String(format: "%.1f MB", mb)
+    }
+
+    private func setPauseSymbol(named name: String) {
+        let image = UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
+        pauseButton.setImage(image, for: .normal)
+    }
+
+    private func configure(panel: UIView) {
+        panel.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        panel.layer.cornerRadius = 16
+        panel.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    private func showError(_ message: String) {
+        let alert = UIAlertController(title: "BikeDashcam", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        present(alert, animated: true)
+    }
+
+    deinit {
+        coordinator.camera.stopSession()
+        coordinator.sensors.stopCollection()
+    }
+}
+
+extension MainViewController: CameraManagerDelegate {
+    func cameraManager(_ manager: CameraManager, didChangeState state: RecordingState) {
+        renderTransport(state)
+    }
+
+    func cameraManager(_ manager: CameraManager, didFailWithError error: CameraError) {
+        statusLabel.text = "录制失败"
+        showError(error.localizedDescription)
+    }
+
+    func cameraManager(_ manager: CameraManager, didUpdateConfiguration configuration: CaptureConfiguration) {
+        apply(configuration)
+    }
+
+    func cameraManager(_ manager: CameraManager, didUpdateStatistics statistics: RecordingStatistics) {
+        apply(statistics)
+        refreshWarnings()
     }
 }
